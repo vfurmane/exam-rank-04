@@ -1,0 +1,7 @@
+*.o
+philo
+philo_bonus
+!philo*/
+*.out
+*.dSYM/
+.*.swp
