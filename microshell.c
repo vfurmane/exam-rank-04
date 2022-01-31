@@ -6,7 +6,7 @@
 /*   By: vfurmane <vfurmane@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/01/18 14:29:04 by vfurmane          #+#    #+#             */
-/*   Updated: 2022/01/29 11:11:27 by vfurmane         ###   ########.fr       */
+/*   Updated: 2022/01/31 09:37:20 by vfurmane         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -118,13 +118,11 @@ int	fork_and_exec(t_cmd *commands, int i, char **envp)
 	const int	id = fork();
 	if (id == 0)
 	{
-		printf("Executing %s (%d|%d)...\n", commands[i].args[0], commands[i].ifd, commands[i].ofd);
+		// printf("Executing %s (%d|%d)...\n", commands[i].args[0], commands[i].ifd, commands[i].ofd);
 		if (is_piped)
-		{
 			close(pipefd[0]);
-			dup2(commands[i].ifd, STDIN_FILENO);
-			dup2(commands[i].ofd, STDOUT_FILENO);
-		}
+		dup2(commands[i].ifd, STDIN_FILENO);
+		dup2(commands[i].ofd, STDOUT_FILENO);
 		if (execve(commands[i].args[0], commands[i].args, envp) == -1)
 		{
 			write(2, "execve error\n", 13);
@@ -139,8 +137,10 @@ int	fork_and_exec(t_cmd *commands, int i, char **envp)
 		if (!commands[i].last_of_commands && !commands[i].last_of_pipes)
 			ret = fork_and_exec(commands, i + 1, envp);
 		waitpid(commands[i].pid, &status, 0);
-		close(commands[i].ifd);
-		close(commands[i].ofd);
+		if (commands[i].ifd != STDIN_FILENO)
+			close(commands[i].ifd);
+		if (commands[i].ofd != STDOUT_FILENO)
+			close(commands[i].ofd);
 		if (!commands[i].last_of_commands)
 			return ret;
 		else
