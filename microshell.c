@@ -6,7 +6,7 @@
 /*   By: vfurmane <vfurmane@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/01/18 14:29:04 by vfurmane          #+#    #+#             */
-/*   Updated: 2022/01/31 09:37:20 by vfurmane         ###   ########.fr       */
+/*   Updated: 2022/01/31 12:07:57 by vfurmane         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <string.h>
 
 typedef struct s_cmd
 {
@@ -25,6 +26,14 @@ typedef struct s_cmd
 	bool	last_of_pipes;
 	bool	last_of_commands;
 }				t_cmd;
+
+void	ft_putstr(int fd, const char *str)
+{
+	int	i = 0;
+
+	while (str[i])
+		write(fd, &str[i++], 1); 
+}
 
 size_t	ft_strlen(const char *str)
 {
@@ -114,6 +123,22 @@ int	fork_and_exec(t_cmd *commands, int i, char **envp)
 		pipe(pipefd);
 		commands[i].ofd = pipefd[1];
 		commands[i + 1].ifd = pipefd[0];
+	}
+	if (strcmp("cd", commands[i].args[0]) == 0)
+	{
+		if (commands[i].args[1] == NULL || commands[i].args[2] != NULL)
+		{
+			write(2, "error: cd: bad arguments\n", 25);
+			return (1);
+		}
+		if (chdir(commands[i].args[1]))
+		{
+			write(2, "error: cd: cannot change directory to ", 38);
+			ft_putstr(2, commands[i].args[1]);
+			write(2, "\n", 1);
+			return (1);
+		}
+		return (0);
 	}
 	const int	id = fork();
 	if (id == 0)
