@@ -6,7 +6,7 @@
 /*   By: vfurmane <vfurmane@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/01/18 14:29:04 by vfurmane          #+#    #+#             */
-/*   Updated: 2022/01/28 13:37:14 by vfurmane         ###   ########.fr       */
+/*   Updated: 2022/01/29 11:11:27 by vfurmane         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -102,12 +102,14 @@ t_cmd	*parse_command_line(int argc, char **argv)
 	return commands;
 }
 
-void	fork_and_exec(t_cmd *commands, int i, char **envp)
+int	fork_and_exec(t_cmd *commands, int i, char **envp)
 {
-	int			status;
+	int	ret = 0;
+	int	status;
 	int	pipefd[2];
+	const bool is_piped = !commands[i].last_of_pipes && !commands[i].last_of_commands;
 
-	if (!commands[i].last_of_pipes && !commands[i].last_of_commands)
+	if (is_piped)
 	{
 		pipe(pipefd);
 		commands[i].ofd = pipefd[1];
@@ -116,48 +118,61 @@ void	fork_and_exec(t_cmd *commands, int i, char **envp)
 	const int	id = fork();
 	if (id == 0)
 	{
-		// printf("Executing %s (%d|%d)...\n", commands[i].args[0], commands[i].ifd, commands[i].ofd);
-		close(pipefd[0]);
-		dup2(commands[i].ifd, STDIN_FILENO);
-		dup2(commands[i].ofd, STDOUT_FILENO);
+		printf("Executing %s (%d|%d)...\n", commands[i].args[0], commands[i].ifd, commands[i].ofd);
+		if (is_piped)
+		{
+			close(pipefd[0]);
+			dup2(commands[i].ifd, STDIN_FILENO);
+			dup2(commands[i].ofd, STDOUT_FILENO);
+		}
 		if (execve(commands[i].args[0], commands[i].args, envp) == -1)
 		{
-			perror("execve: ");
+			write(2, "execve error\n", 13);
 			exit(1);
 		}
 	}
 	else
 	{
-		close(pipefd[1]);
+		if (is_piped)
+			close(pipefd[1]);
 		commands[i].pid = id;
 		if (!commands[i].last_of_commands && !commands[i].last_of_pipes)
-			fork_and_exec(commands, i + 1, envp);
+			ret = fork_and_exec(commands, i + 1, envp);
 		waitpid(commands[i].pid, &status, 0);
 		close(commands[i].ifd);
 		close(commands[i].ofd);
-		if (WIFEXITED(status))
-			printf("Command %s exited with %d\n", commands[i].args[0], WEXITSTATUS(status));
-		else if (WIFSIGNALED(status))
-			printf("Command %s signaled with %d\n", commands[i].args[0], WTERMSIG(status));
+		if (!commands[i].last_of_commands)
+			return ret;
+		else
+		{
+			if (WIFEXITED(status))
+				return WEXITSTATUS(status);
+			else if (WIFSIGNALED(status))
+				return 128 + WTERMSIG(status);
+		}
 	}
+	return -1;
 }
 
-void	exec_commands(t_cmd *commands, char **envp)
+int	exec_commands(t_cmd *commands, char **envp)
 {
 	int	i = -1;
+	int	ret;
 
 	do
 	{
 		i++;
-		fork_and_exec(commands, i, envp);
+		ret = fork_and_exec(commands, i, envp);
 		while (!commands[i].last_of_commands && !commands[i].last_of_pipes)
 			i++;
 	} while (!commands[i].last_of_commands);
+	return ret;
 }
 
 int	main(int argc, char **argv, char **envp)
 {
 	int		i = 0;
+	int		ret = 0;
 	t_cmd	*commands;
 
 	commands = parse_command_line(argc, argv);
@@ -165,12 +180,12 @@ int	main(int argc, char **argv, char **envp)
 		return 1;
 	if (argc > 1)
 	{
-		exec_commands(commands, envp);
+		ret = exec_commands(commands, envp);
 		do
 		{
 			free(commands[i].args);
 		} while (!commands[i++].last_of_commands);
 	}
 	free(commands);
-	return 0;
+	return ret;
 }
