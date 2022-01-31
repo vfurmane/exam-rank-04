@@ -6,7 +6,7 @@
 /*   By: vfurmane <vfurmane@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/01/18 14:29:04 by vfurmane          #+#    #+#             */
-/*   Updated: 2022/01/31 12:07:57 by vfurmane         ###   ########.fr       */
+/*   Updated: 2022/01/31 13:37:12 by vfurmane         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -124,7 +124,9 @@ int	fork_and_exec(t_cmd *commands, int i, char **envp)
 		commands[i].ofd = pipefd[1];
 		commands[i + 1].ifd = pipefd[0];
 	}
-	if (strcmp("cd", commands[i].args[0]) == 0)
+	if (commands[i].args[0] == NULL)
+		return (0);
+	else if (strcmp("cd", commands[i].args[0]) == 0)
 	{
 		if (commands[i].args[1] == NULL || commands[i].args[2] != NULL)
 		{
